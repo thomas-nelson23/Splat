@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Splat</Name>
+  <Repository>ghcr.io/thomas-nelson23/splat:latest</Repository>
+  <Registry>https://github.com/thomas-nelson23/splat/pkgs/container/splat</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/thomas-nelson23/splat/issues</Support>
+  <Project>https://github.com/thomas-nelson23/splat</Project>
+  <Overview>Splat: design 3D-printable parts by chatting with Claude. Claude Code runs inside the container and writes OpenSCAD; you get a live 3D preview, customizer sliders, version history for every change, imports (STL, 3MF, OBJ, STEP, SVG, DXF) and exports (3MF, STL, STEP, OBJ, glTF, SVG, DXF and more), plus an OrcaSlicer handoff.&#xD;
+&#xD;
+Connect Claude with either a Claude subscription token (run "claude setup-token" on any computer) or an Anthropic API key, here or later in the app's Settings.</Overview>
+  <Category>Productivity: Tools:</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/thomas-nelson23/splat/main/unraid/splat.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/thomas-nelson23/splat/main/unraid/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="Web UI port" Target="8080" Default="8080" Mode="tcp" Description="Port for the web interface." Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+  <Config Name="App data" Target="/data" Default="/mnt/user/appdata/splat" Mode="rw" Description="Projects (each a git repository with full version history), settings and Claude Code's own state." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/splat</Config>
+  <Config Name="App password" Target="APP_PASSWORD" Default="" Mode="" Description="Optional login password for the web UI. Strongly recommended if the app is reachable from the internet (Claude can run commands inside this container)." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Claude subscription token" Target="CLAUDE_CODE_OAUTH_TOKEN" Default="" Mode="" Description="Optional. Output of 'claude setup-token' (uses your Claude Pro/Max plan). Can also be set in the app's Settings." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Anthropic API key" Target="ANTHROPIC_API_KEY" Default="" Mode="" Description="Optional. Pay-as-you-go API key from console.anthropic.com. Can also be set in the app's Settings." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Claude model" Target="CLAUDE_MODEL" Default="" Mode="" Description="Optional default model (opus, sonnet, haiku or a full model id). Settings in the app override this." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Render timeout (seconds)" Target="RENDER_TIMEOUT_SECONDS" Default="600" Mode="" Description="Longest a single OpenSCAD render may run." Type="Variable" Display="advanced" Required="false" Mask="false">600</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User id that owns files in appdata (Unraid default: 99 = nobody)." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group id that owns files in appdata (Unraid default: 100 = users)." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+</Container>
