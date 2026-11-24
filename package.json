@@ -1,0 +1,14 @@
+{
+  "name": "splat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted, chat-driven OpenSCAD modeling app with Claude Code built in",
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "build": "npm run build -w web && npm run build -w server",
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "start": "node server/dist/index.js",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web"
+  }
+}
