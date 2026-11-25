@@ -178,6 +178,8 @@ export const Viewer = forwardRef<ViewerHandle, Props>(function Viewer({ url, kin
     screenshot: (width = 640) => {
       const c = ctx.current;
       if (!c) return null;
+      // On phones the 3D view can be hidden behind another tab; a capture then is blank.
+      if (!host.current || host.current.clientWidth < 50 || host.current.clientHeight < 50) return null;
       c.renderer.render(c.scene, c.camera);
       const src = c.renderer.domElement;
       const canvas = document.createElement('canvas');
