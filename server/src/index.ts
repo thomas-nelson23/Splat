@@ -13,8 +13,8 @@ import * as git from './git.js';
 import { preview, dropPreview } from './preview.js';
 import { capabilities, parseParams, render, stlStats, type ParamOverrides } from './openscad.js';
 import { EXPORT_FORMATS, exportProject, importFile, IMPORT_EXTS } from './convert.js';
-import { chat, testClaude } from './claude.js';
-import { publicSettings, updateSettings, claudeAuth } from './settings.js';
+import { chat, testAgent } from './claude.js';
+import { publicSettings, updateSettings, claudeAuth, agentKind, agentReady } from './settings.js';
 import { subscribe, send, broadcast } from './hub.js';
 import { authEnabled, checkPassword, clearSession, isAuthed, makeToken, parseCookies, readToken, requireAuth, setSession } from './auth.js';
 
@@ -76,6 +76,8 @@ app.get(
       version: APP_VERSION,
       openscad: caps,
       claude: claudeAuth().mode,
+      agent: agentKind(),
+      agentReady: agentReady(),
       dataDir: DATA_DIR,
       exportFormats: EXPORT_FORMATS,
       importExtensions: IMPORT_EXTS,
@@ -95,6 +97,10 @@ app.put(
       printerProfile: pick('printerProfile'),
       anthropicApiKey: pick('anthropicApiKey'),
       claudeOAuthToken: pick('claudeOAuthToken'),
+      agent: b.agent === 'hermes' || b.agent === 'claude' ? b.agent : undefined,
+      hermesUrl: pick('hermesUrl'),
+      hermesApiKey: pick('hermesApiKey'),
+      hermesModel: pick('hermesModel'),
     };
     // Setting one credential type clears the other so it is obvious which is used.
     if (patch.anthropicApiKey) patch.claudeOAuthToken = '';
@@ -103,7 +109,7 @@ app.put(
     return publicSettings();
   }),
 );
-app.post('/api/settings/test', h(() => testClaude()));
+app.post('/api/settings/test', h((req) => testAgent(req.body?.agent === 'hermes' || req.body?.agent === 'claude' ? req.body.agent : undefined)));
 
 // ---------------------------------------------------------------- projects
 app.get('/api/projects', h(() => projects.listProjects()));
@@ -486,7 +492,7 @@ server.listen(PORT, () => {
     console.log(`Splat ${APP_VERSION} listening on :${PORT}`);
     console.log(`  data: ${DATA_DIR}`);
     console.log(`  OpenSCAD: ${c.bin} ${c.version}${c.manifold ? ' (manifold)' : ''}`);
-    console.log(`  Claude auth: ${claudeAuth().mode}`);
+    console.log(`  Chat agent: ${agentKind()}${agentKind() === 'claude' ? ` (auth: ${claudeAuth().mode})` : ''}`);
     if (!authEnabled()) console.log('  APP_PASSWORD not set: the UI is open to anyone who can reach this port.');
   });
 });

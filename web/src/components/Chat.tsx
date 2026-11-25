@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { api, fileToBase64, P, type Block, type ChatMessage } from '../api';
+import { agentName, api, fileToBase64, P, type AgentKind, type Block, type ChatMessage } from '../api';
+import { Camera, Chev, Close, ImageIcon } from './Glyphs';
 
 interface Props {
   projectId: string;
   messages: ChatMessage[];
   running: boolean;
-  claudeReady: boolean;
+  agent: AgentKind;
+  agentReady: boolean;
   onOpenSettings: () => void;
   captureView: () => string | null;
   draft: string;
@@ -31,6 +33,9 @@ function toolLabel(b: Extract<Block, { type: 'tool' }>): string {
   const i = b.input ?? {};
   const file = (p?: string) => (p ? String(p).split('/').slice(-2).join('/') : '');
   switch (b.name) {
+    case 'splat_write':
+      return `Wrote ${file(i.path)}`;
+    case 'splat_render':
     case 'mcp__splat__render':
       return b.result === undefined ? 'Rendering…' : b.isError ? 'Render failed' : 'Rendered';
     case 'mcp__splat__snapshot':
@@ -57,6 +62,7 @@ function toolLabel(b: Extract<Block, { type: 'tool' }>): string {
     case 'Agent':
       return `Delegated: ${String(i.description ?? '').slice(0, 50)}`;
     default:
+      if (b.name.startsWith('hermes:')) return `${b.name.slice(7).replace(/_/g, ' ')}${i.preview ? `: ${String(i.preview).slice(0, 60)}` : ''}`;
       return b.name.replace(/^mcp__\w+__/, '');
   }
 }
@@ -67,17 +73,19 @@ function ToolChip({ b }: { b: Extract<Block, { type: 'tool' }> }) {
   const detail =
     b.name === 'Edit' && b.input?.old_string !== undefined
       ? `--- ${b.input.file_path}\n- ${String(b.input.old_string).split('\n').join('\n- ')}\n+ ${String(b.input.new_string).split('\n').join('\n+ ')}`
-      : b.name === 'Write'
+      : b.name === 'Write' || b.name === 'splat_write'
         ? String(b.input?.content ?? '')
         : b.name === 'Bash'
           ? `$ ${b.input?.command ?? ''}`
-          : JSON.stringify(b.input, null, 2);
+          : b.name === 'splat_render' || b.name.startsWith('hermes:')
+            ? ''
+            : JSON.stringify(b.input, null, 2);
   return (
     <div className={`tool ${b.isError ? 'err' : ''} ${pending ? 'pending' : ''}`}>
       <button className="tool-head" onClick={() => setOpen(!open)}>
         <span className="tool-dot" />
-        {toolLabel(b)}
-        <span className="chev">{open ? '▾' : '▸'}</span>
+        <span className="label">{toolLabel(b)}</span>
+        <span className="chev-wrap"><Chev open={open} /></span>
       </button>
       {open && (
         <div className="tool-body">
@@ -92,7 +100,7 @@ function ToolChip({ b }: { b: Extract<Block, { type: 'tool' }> }) {
 function Message({ m, projectId }: { m: ChatMessage; projectId: string }) {
   if (m.role === 'user')
     return (
-      <div className="msg user">
+      <div className="chat-msg user">
         {m.images?.map((img) => <img key={img} src={`${P(projectId)}/chat/upload/${img}`} alt="attachment" />)}
         {m.text && <div className="bubble">{m.text}</div>}
       </div>
@@ -100,15 +108,15 @@ function Message({ m, projectId }: { m: ChatMessage; projectId: string }) {
   const blocks = m.blocks ?? [];
   const working = !m.done;
   return (
-    <div className="msg assistant">
+    <div className="chat-msg assistant">
       {blocks.map((b, i) => {
         if (b.type === 'text') return b.text.trim() ? <div key={i} className="md"><ReactMarkdown remarkPlugins={[remarkGfm]}>{b.text}</ReactMarkdown></div> : null;
         if (b.type === 'thinking') return working && i === blocks.length - 1 ? <div key={i} className="thinking">Thinking…</div> : null;
         if (b.name === 'TodoWrite' || b.name === 'ToolSearch') return null;
         return <ToolChip key={b.id || i} b={b} />;
       })}
-      {working && blocks.length === 0 && <div className="thinking">Claude is starting…</div>}
-      {working && blocks.length > 0 && <div className="typing"><span /><span /><span /></div>}
+      {working && blocks.length === 0 && <div className="thinking">{agentName(m.agent)} is starting…</div>}
+      {working && <div className="busy typing" />}
       {m.error && <div className="msg-error">{m.error}</div>}
       {m.done && (m.commit || m.costUsd) ? (
         <div className="msg-meta">
@@ -121,7 +129,7 @@ function Message({ m, projectId }: { m: ChatMessage; projectId: string }) {
   );
 }
 
-export function Chat({ projectId, messages, running, claudeReady, onOpenSettings, captureView, draft, setDraft }: Props) {
+export function Chat({ projectId, messages, running, agent, agentReady, onOpenSettings, captureView, draft, setDraft }: Props) {
   const [images, setImages] = useState<PendingImage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -189,14 +197,14 @@ export function Chat({ projectId, messages, running, claudeReady, onOpenSettings
   };
 
   const newChat = async () => {
-    if (!confirm('Start a new conversation? Your model and history stay; Claude just forgets this chat.')) return;
+    if (!confirm(`Start a new conversation? Your model and history stay; ${agentName(agent)} just forgets this chat.`)) return;
     await api(`${P(projectId)}/chat/reset`, { method: 'POST' });
   };
 
   return (
     <div className="chat">
       <div className="chat-head">
-        <span>Chat</span>
+        <span className="eyebrow">Chat · {agentName(agent)}</span>
         <button className="ghost small" onClick={newChat} title="Start a fresh conversation">New chat</button>
       </div>
       <div
@@ -207,15 +215,18 @@ export function Chat({ projectId, messages, running, claudeReady, onOpenSettings
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
         }}
       >
-        {!claudeReady && (
+        {!agentReady && (
           <div className="notice">
-            Claude isn't connected yet. <button className="link" onClick={onOpenSettings}>Open Settings</button> to add an API key or your
-            Claude subscription token.
+            {agent === 'hermes' ? (
+              <>Hermes isn't connected yet. <button className="link" onClick={onOpenSettings}>Open Settings</button> to add your Hermes gateway's URL and API key.</>
+            ) : (
+              <>Claude isn't connected yet. <button className="link" onClick={onOpenSettings}>Open Settings</button> to add an API key or your Claude subscription token.</>
+            )}
           </div>
         )}
         {messages.length === 0 && (
           <div className="empty-chat">
-            <p>Describe what you want to make. Claude writes the OpenSCAD, renders it and checks the result. You'll see it appear on the right.</p>
+            <p>Describe what you want to make. {agentName(agent)} writes the OpenSCAD, renders it and checks the result. You'll see it appear on the right.</p>
             <div className="suggestions">
               {SUGGESTIONS.map((s) => (
                 <button key={s} onClick={() => setDraft(s)}>{s}</button>
@@ -231,7 +242,7 @@ export function Chat({ projectId, messages, running, claudeReady, onOpenSettings
           {images.map((img, i) => (
             <div key={i} className="pending-image">
               <img src={img.preview} alt="" />
-              <button onClick={() => setImages(images.filter((_, j) => j !== i))}>×</button>
+              <button className="tiny icon" aria-label="Remove image" onClick={() => setImages(images.filter((_, j) => j !== i))}><Close /></button>
             </div>
           ))}
         </div>
@@ -240,15 +251,15 @@ export function Chat({ projectId, messages, running, claudeReady, onOpenSettings
         <textarea
           ref={input}
           value={draft}
-          placeholder={running ? 'Claude is working… you can type your next message' : 'Ask for a part or a change… (Enter to send)'}
+          placeholder={running ? `${agentName(agent)} is working… you can type your next message` : 'Ask for a part or a change… (Enter to send)'}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKey}
           onPaste={onPaste}
           rows={1}
         />
         <div className="composer-actions">
-          <button className="ghost small" onClick={attachView} title="Attach a picture of the current 3D view">📷 View</button>
-          <button className="ghost small" onClick={() => fileInput.current?.click()} title="Attach an image (sketch, photo, drawing)">🖼 Image</button>
+          <button className="ghost small" onClick={attachView} title="Attach a picture of the current 3D view"><Camera /> View</button>
+          <button className="ghost small" onClick={() => fileInput.current?.click()} title="Attach an image (sketch, photo, drawing)"><ImageIcon /> Image</button>
           <input
             ref={fileInput}
             type="file"

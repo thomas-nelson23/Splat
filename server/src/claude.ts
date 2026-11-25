@@ -8,9 +8,11 @@ import { projectDir, readMeta, stateDir, touch } from './projects.js';
 import { preview } from './preview.js';
 import { capabilities, snapshots, VIEWS } from './openscad.js';
 import { broadcast } from './hub.js';
-import { claudeAuth, getSettings } from './settings.js';
+import { agentKind, claudeAuth, getSettings } from './settings.js';
 import { commitAll } from './git.js';
 import { OPENSCAD_PATH } from './config.js';
+import { renderReport } from './render-report.js';
+import { hermesReady, resetHermesSession, runHermesTurn, testHermes } from './hermes.js';
 
 export type Block =
   | { type: 'text'; text: string }
@@ -29,6 +31,8 @@ export interface ChatMessage {
   costUsd?: number;
   durationMs?: number;
   commit?: string | null;
+  /** Which agent wrote this reply. */
+  agent?: 'claude' | 'hermes';
 }
 
 export interface ImageInput {
@@ -79,27 +83,8 @@ function splatTools(projectId: string) {
         'Render the project main file the same way the live preview does. Returns status, errors, warnings, echo output and mesh statistics (bounding box in mm, volume, triangles).',
         {},
         async () => {
-          const p = preview(projectId);
-          const waiting = p.next();
-          p.schedule(0);
-          const s = await waiting;
-          const lines = [
-            `status: ${s.status}${s.kind ? ` (${s.kind})` : ''}`,
-            `render time: ${((s.durationMs ?? 0) / 1000).toFixed(1)}s`,
-          ];
-          if (s.stats)
-            lines.push(
-              `bounding box: min [${s.stats.min.join(', ')}] max [${s.stats.max.join(', ')}]`,
-              `size (x, y, z): ${s.stats.size.join(' x ')} mm`,
-              `volume: ${(s.stats.volume / 1000).toFixed(2)} cm³, triangles: ${s.stats.triangles}`,
-            );
-          if (s.kind === '2d') lines.push('top level object is 2D; preview shows it as a flat SVG shape.');
-          if (s.kind === 'empty') lines.push('WARNING: the top level object is empty, nothing will be exported.');
-          if (s.log?.errors.length) lines.push('errors:', ...s.log.errors.slice(0, 30));
-          if (s.log?.warnings.length) lines.push('warnings:', ...s.log.warnings.slice(0, 30));
-          if (s.log?.echoes.length) lines.push('echo:', ...s.log.echoes.slice(0, 40));
-          if (s.status === 'error' && !s.log?.errors.length) lines.push('log tail:', ...(s.log?.raw ?? '').split('\n').slice(-25));
-          return { content: [{ type: 'text', text: clip(lines.join('\n'), 8000) }], isError: s.status === 'error' };
+          const r = await renderReport(projectId);
+          return { content: [{ type: 'text', text: r.text }], isError: r.isError };
         },
       ),
       tool(
@@ -192,6 +177,7 @@ class ChatSession {
     await this.load();
     if (fss.existsSync(this.file)) await fs.rename(this.file, path.join(stateDir(this.projectId), `chat-${Date.now()}.jsonl`));
     await fs.rm(this.sessionFile, { force: true });
+    resetHermesSession(this.projectId);
     this.messages = [];
     broadcast(this.projectId, { type: 'chat-reset' });
   }
@@ -202,9 +188,11 @@ class ChatSession {
 
   async send(text: string, images: ImageInput[] = []) {
     await this.load();
-    if (this.running) throw new Error('Claude is still working on the last message');
-    const auth = claudeAuth();
-    if (auth.mode === 'none') throw new Error('Claude is not connected yet. Add an API key or a Claude subscription token in Settings.');
+    const agent = agentKind();
+    if (this.running) throw new Error(`${agent === 'hermes' ? 'Hermes' : 'Claude'} is still working on the last message`);
+    if (agent === 'hermes') {
+      if (!hermesReady()) throw new Error('Hermes is selected but not connected yet. Add the Hermes URL and API key in Settings.');
+    } else if (claudeAuth().mode === 'none') throw new Error('Claude is not connected yet. Add an API key or a Claude subscription token in Settings.');
 
     // Keep hand edits made since the last version separate from what Claude changes.
     await commitAll(projectDir(this.projectId), 'Manual edits').catch(() => null);
@@ -222,12 +210,14 @@ class ChatSession {
     await this.append(userMsg);
     this.emit(userMsg, true);
 
-    const assistant: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', ts: new Date().toISOString(), blocks: [], done: false };
+    const history = this.messages.slice(0, -1);
+    const assistant: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', ts: new Date().toISOString(), blocks: [], done: false, agent };
     this.current = assistant;
     this.running = true;
     broadcast(this.projectId, { type: 'chat-status', running: true });
     this.emit(assistant, true);
-    void this.runTurn(text, images, assistant).finally(() => {
+    const turn = agent === 'hermes' ? this.runHermes(text, imageIds, history, assistant) : this.runTurn(text, images, assistant);
+    void turn.finally(() => {
       this.running = false;
       this.current = null;
       broadcast(this.projectId, { type: 'chat-status', running: false });
@@ -307,11 +297,27 @@ class ChatSession {
       if (this.abort.signal.aborted) m.error = 'Stopped.';
       else m.error = friendlyError(String((err as Error)?.message ?? err));
     }
+    await this.finish(text, m, started, 'Claude');
+  }
+
+  private async runHermes(text: string, imageIds: string[], history: ChatMessage[], m: ChatMessage) {
+    const started = Date.now();
+    this.abort = new AbortController();
+    try {
+      await runHermesTurn({ projectId: this.projectId, history, text, imageIds, m, signal: this.abort.signal, emit: () => this.emit(m) });
+    } catch (err) {
+      if (this.abort.signal.aborted) m.error = 'Stopped.';
+      else m.error = String((err as Error)?.message ?? err);
+    }
+    await this.finish(text, m, started, 'Hermes');
+  }
+
+  private async finish(text: string, m: ChatMessage, started: number, who: string) {
     m.done = true;
     m.durationMs = Date.now() - started;
     const firstLine = text.split('\n')[0].trim();
     try {
-      m.commit = await commitAll(projectDir(this.projectId), `Claude: ${firstLine.slice(0, 72) || 'update'}${firstLine.length > 72 ? '…' : ''}`);
+      m.commit = await commitAll(projectDir(this.projectId), `${who}: ${firstLine.slice(0, 72) || 'update'}${firstLine.length > 72 ? '…' : ''}`);
       if (m.commit) {
         await touch(this.projectId);
         await commitAll(projectDir(this.projectId), 'Update project metadata').catch(() => null);
@@ -449,6 +455,11 @@ export function chat(projectId: string) {
     sessions.set(projectId, s);
   }
   return s;
+}
+
+/** Test whichever agent is selected (or the one asked for). */
+export function testAgent(which?: 'claude' | 'hermes') {
+  return (which ?? agentKind()) === 'hermes' ? testHermes() : testClaude();
 }
 
 /** Quick check that the configured credentials work, by asking Claude Code for a one-word reply. */

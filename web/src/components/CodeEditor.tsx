@@ -5,7 +5,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { StreamLanguage, bracketMatching, indentOnInput, syntaxHighlighting, defaultHighlightStyle, foldGutter } from '@codemirror/language';
 import { closeBrackets, autocompletion, type CompletionContext } from '@codemirror/autocomplete';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
-import { oneDark } from '@codemirror/theme-one-dark';
+import { steezeEditor } from './editorTheme';
 
 const KEYWORDS = new Set(['module', 'function', 'include', 'use', 'if', 'else', 'for', 'let', 'each', 'intersection_for', 'assert', 'echo', 'true', 'false', 'undef', 'function']);
 const BUILTINS = [
@@ -107,7 +107,7 @@ export function CodeEditor({ value, onChange, onSave, readOnly, docVersion }: Pr
           highlightSelectionMatches(),
           openscad,
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-          oneDark,
+          ...steezeEditor,
           EditorState.readOnly.of(!!readOnly),
           keymap.of([
             { key: 'Mod-s', preventDefault: true, run: () => (cbs.current.onSave(), true) },
@@ -119,7 +119,7 @@ export function CodeEditor({ value, onChange, onSave, readOnly, docVersion }: Pr
           EditorView.updateListener.of((u) => {
             if (u.docChanged && !u.transactions.some((t) => t.annotation(external))) cbs.current.onChange(u.state.doc.toString());
           }),
-          EditorView.theme({ '&': { height: '100%', fontSize: '13px' }, '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' } }),
+          EditorView.theme({ '&': { height: '100%', fontSize: '13px' } }),
         ],
       }),
     });

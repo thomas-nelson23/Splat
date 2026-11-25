@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, P, type ChatMessage, type PreviewState, type ProjectMeta, type Status } from '../api';
+import { agentName, api, P, type ChatMessage, type PreviewState, type ProjectMeta, type Status } from '../api';
 import { useProjectSocket } from '../useSocket';
 import { Viewer, type ViewerHandle } from './Viewer';
 import { Chat } from './Chat';
@@ -8,6 +8,7 @@ import { ParamsPanel } from './ParamsPanel';
 import { FilesPanel, uploadFiles } from './FilesPanel';
 import { HistoryPanel } from './HistoryPanel';
 import { ExportPanel } from './ExportPanel';
+import { Back, Gear, HexMark } from './Glyphs';
 
 type Tab = 'code' | 'params' | 'files' | 'history' | 'export';
 type MobileTab = 'chat' | 'model' | 'panel';
@@ -183,7 +184,7 @@ export function Workspace({ projectId, status, firstMessage, onBack, onSettings 
     }, 300);
   };
 
-  const askClaude = (text: string) => {
+  const askAgent = (text: string) => {
     setDraft(text);
     setMobileTab('chat');
   };
@@ -196,12 +197,13 @@ export function Workspace({ projectId, status, firstMessage, onBack, onSettings 
     setTab('files');
     setFilesKey((k) => k + 1);
     const ok = results.filter((r) => r.ok);
-    if (ok.length) askClaude(`I imported ${ok.map((r) => r.file).join(', ')}. `);
+    if (ok.length) askAgent(`I imported ${ok.map((r) => r.file).join(', ')}. `);
     const bad = results.filter((r) => !r.ok);
     if (bad.length) alert(bad.map((r) => `${r.name}: ${r.error}`).join('\n'));
   };
 
-  const claudeReady = status ? status.claude !== 'none' : true;
+  const agent = status?.agent ?? 'claude';
+  const agentReady = status ? status.agentReady : true;
   const log = pv.log;
   const problems = (log?.errors.length ?? 0) + (log?.warnings.length ?? 0);
 
@@ -227,14 +229,16 @@ export function Workspace({ projectId, status, firstMessage, onBack, onSettings 
       onDrop={onDrop}
     >
       <header className="topbar">
-        <button className="ghost" onClick={onBack} title="All projects">←</button>
-        <div className="brand-mini"><img src="/icon.svg" alt="" width={22} height={22} /></div>
+        <button className="ghost icon" onClick={onBack} title="All projects" aria-label="All projects"><Back /></button>
+        <div className="brand-mini"><HexMark /></div>
         <button className="project-name" onClick={renameProject} title="Rename">{meta?.name ?? '…'}</button>
         <span className={`render-pill ${pv.status}`}>
+          <span className={`led ${pv.status === 'rendering' ? 'on' : pv.status === 'error' ? 'bad' : ''}`} />
           {pv.status === 'rendering' ? 'Rendering…' : pv.status === 'error' ? 'Render error' : pv.status === 'ok' ? `Rendered ${pv.durationMs !== undefined ? `in ${(pv.durationMs / 1000).toFixed(1)}s` : ''}` : 'Idle'}
         </span>
         <span className="spacer" />
-        <button className="ghost" onClick={onSettings}>Settings</button>
+        <span className="agent-pill">{agentName(agent)}</span>
+        <button className="ghost icon" onClick={onSettings} title="Settings" aria-label="Settings"><Gear /></button>
       </header>
 
       <div className="ws-body">
@@ -243,7 +247,8 @@ export function Workspace({ projectId, status, firstMessage, onBack, onSettings 
             projectId={projectId}
             messages={messages}
             running={running}
-            claudeReady={claudeReady}
+            agent={agent}
+            agentReady={agentReady}
             onOpenSettings={onSettings}
             captureView={() => viewer.current?.screenshot(1024) ?? null}
             draft={draft}
@@ -255,11 +260,12 @@ export function Workspace({ projectId, status, firstMessage, onBack, onSettings 
           <Viewer ref={viewer} url={modelUrl} kind={viewingSha ? undefined : pv.kind} version={viewingSha ?? pv.version} fitKey={projectId} onLoaded={onModelLoaded} />
           {viewingSha && (
             <div className="viewing-banner">
-              Previewing an older version ({viewingSha.slice(0, 7)})
+              <span className="led" />
+              Previewing an older version · {viewingSha.slice(0, 7)}
               <button className="small" onClick={() => setViewingSha(null)}>Back to current</button>
             </div>
           )}
-          {pv.status === 'rendering' && <div className="spinner" title="Rendering" />}
+          {pv.status === 'rendering' && <div className="busy render-busy" title="Rendering" />}
           {pv.kind === 'empty' && !viewingSha && <div className="viewer-msg">The model is empty. Nothing to show yet.</div>}
           <div className={`statusbar ${pv.status === 'error' ? 'error' : ''}`}>
             {pv.stats && (
@@ -280,9 +286,9 @@ export function Workspace({ projectId, status, firstMessage, onBack, onSettings 
             {pv.status === 'error' && (
               <button
                 className="small primary"
-                onClick={() => askClaude(`The render fails with:\n${(log?.errors.join('\n') || log?.raw.split('\n').slice(-8).join('\n') || '').slice(0, 1500)}\nPlease fix it.`)}
+                onClick={() => askAgent(`The render fails with:\n${(log?.errors.join('\n') || log?.raw.split('\n').slice(-8).join('\n') || '').slice(0, 1500)}\nPlease fix it.`)}
               >
-                Ask Claude to fix
+                Ask {agentName(agent)} to fix
               </button>
             )}
           </div>
@@ -328,7 +334,7 @@ export function Workspace({ projectId, status, firstMessage, onBack, onSettings 
                   void loadFile(p);
                   setTab('code');
                 }}
-                onAskClaude={askClaude}
+                onAskClaude={askAgent}
               />
             )}
             {tab === 'history' && <HistoryPanel projectId={projectId} refreshKey={historyKey} viewing={viewingSha} onView={setViewingSha} />}

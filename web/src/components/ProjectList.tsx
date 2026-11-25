@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { api, P, timeAgo, type ProjectMeta } from '../api';
+import { agentName, api, P, timeAgo, type AgentKind, type ProjectMeta } from '../api';
+import { Gear, HexMark, More, Wordmark } from './Glyphs';
 
 interface Props {
   onOpen: (id: string, firstMessage?: string) => void;
   onSettings: () => void;
-  claudeReady: boolean;
+  agentReady: boolean;
+  agent: AgentKind;
 }
 
-export function ProjectList({ onOpen, onSettings, claudeReady }: Props) {
+export function ProjectList({ onOpen, onSettings, agentReady, agent }: Props) {
   const [projects, setProjects] = useState<ProjectMeta[] | null>(null);
   const [idea, setIdea] = useState('');
   const [busy, setBusy] = useState(false);
@@ -52,18 +54,20 @@ export function ProjectList({ onOpen, onSettings, claudeReady }: Props) {
   };
 
   return (
-    <div className="home" onClick={() => setMenu(null)}>
+    <div className="home hex" onClick={() => setMenu(null)}>
       <header className="topbar">
-        <div className="brand"><img src="/icon.svg" alt="" width={26} height={26} /> Splat</div>
+        <div className="brand"><HexMark /><Wordmark /></div>
         <span className="spacer" />
-        <button className="ghost" onClick={onSettings}>Settings</button>
+        <span className="agent-pill">{agentName(agent)}</span>
+        <button className="ghost icon" onClick={onSettings} title="Settings" aria-label="Settings"><Gear /></button>
       </header>
       <div className="home-inner">
         <div className="hero">
+          <div className="eyebrow">New part</div>
           <h1>What do you want to make?</h1>
-          {!claudeReady && (
+          {!agentReady && (
             <div className="notice">
-              Connect Claude first: <button className="link" onClick={onSettings}>open Settings</button>.
+              Connect {agentName(agent)} first: <button className="link" onClick={onSettings}>open Settings</button>.
             </div>
           )}
           <div className="idea">
@@ -93,30 +97,34 @@ export function ProjectList({ onOpen, onSettings, claudeReady }: Props) {
         ) : projects.length === 0 ? (
           <div className="muted">No projects yet.</div>
         ) : (
-          <div className="grid">
+          <div className="project-grid">
             {projects.map((p) => (
-              <div key={p.id} className="card" onClick={() => onOpen(p.id)}>
+              <div key={p.id} className="card-wrap">
+              <div className="card" onClick={() => onOpen(p.id)}>
                 <div className="thumb">
-                  {p.thumbnail ? <img src={`${P(p.id)}/thumbnail?v=${encodeURIComponent(p.updatedAt)}`} alt="" /> : <span>◇</span>}
+                  {p.thumbnail ? <img src={`${P(p.id)}/thumbnail?v=${encodeURIComponent(p.updatedAt)}`} alt="" /> : <HexMark />}
                 </div>
                 <div className="card-body">
                   <div className="card-title">{p.name}</div>
                   <div className="muted small">{timeAgo(p.updatedAt)}</div>
                 </div>
+              </div>
                 <button
-                  className="ghost card-menu-btn"
+                  className="small icon card-menu-btn"
+                  aria-label="Project actions"
                   onClick={(e) => {
                     e.stopPropagation();
                     setMenu(menu === p.id ? null : p.id);
                   }}
                 >
-                  ⋯
+                  <More />
                 </button>
                 {menu === p.id && (
                   <div className="card-menu" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => rename(p)}>Rename</button>
+                    <button onClick={() => rename(p)}>Rename…</button>
                     <button onClick={() => duplicate(p)}>Duplicate</button>
-                    <button className="danger-text" onClick={() => remove(p)}>Delete</button>
+                    <div className="sep" />
+                    <button className="danger-text" onClick={() => remove(p)}>Delete…</button>
                   </div>
                 )}
               </div>

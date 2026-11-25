@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, fmtBytes, P, type FileEntry, type ProjectMeta } from '../api';
+import { Close, Download } from './Glyphs';
 
 interface ImportResult {
   name: string;
@@ -75,7 +76,7 @@ export function FilesPanel({ project, refreshKey, onOpen, onAskClaude, accept }:
       }}
     >
       <div className="dropzone" onClick={() => input.current?.click()}>
-        {busy ? 'Importing…' : 'Drop files here or click to import'}
+        <b>{busy ? 'Importing…' : 'Drop files to import'}</b>
         <small>STL, 3MF, OBJ, STEP, SVG, DXF, PNG heightmaps, fonts, .scad</small>
         <input ref={input} type="file" multiple hidden accept={accept} onChange={(e) => e.target.files && void doUpload(e.target.files)} />
       </div>
@@ -96,7 +97,7 @@ export function FilesPanel({ project, refreshKey, onOpen, onAskClaude, accept }:
                   )
                 }
               >
-                Ask Claude to use it
+                Use it in the chat
               </button>
             </>
           ) : (
@@ -120,9 +121,9 @@ export function FilesPanel({ project, refreshKey, onOpen, onAskClaude, accept }:
               {f.path.endsWith('.scad') && f.path !== project.main && (
                 <button className="ghost tiny" onClick={() => setMain(f.path)} title="Show this file in the preview">Set main</button>
               )}
-              <a className="ghost tiny" href={`${P(project.id)}/file?path=${encodeURIComponent(f.path)}&download=1`}>⇩</a>
+              <a className="ghost tiny" href={`${P(project.id)}/file?path=${encodeURIComponent(f.path)}&download=1`} aria-label="Download" title="Download"><Download /></a>
               {f.path !== project.main && f.path !== 'project.json' && (
-                <button className="ghost tiny" onClick={() => del(f.path)}>✕</button>
+                <button className="ghost tiny icon" aria-label="Delete" title="Delete" onClick={() => del(f.path)}><Close /></button>
               )}
             </span>
           </li>
