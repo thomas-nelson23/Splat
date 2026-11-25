@@ -36,7 +36,7 @@ export function App() {
   }, [auth, loadStatus]);
 
   useEffect(() => {
-    if (status && status.claude === 'none' && !sessionStorage.getItem('splat-settings-shown')) {
+    if (status && !status.agentReady && !sessionStorage.getItem('splat-settings-shown')) {
       sessionStorage.setItem('splat-settings-shown', '1');
       setSettingsOpen(true);
     }
@@ -65,7 +65,7 @@ export function App() {
           onSettings={() => setSettingsOpen(true)}
         />
       ) : (
-        <ProjectList onOpen={open} onSettings={() => setSettingsOpen(true)} claudeReady={status ? status.claude !== 'none' : true} />
+        <ProjectList onOpen={open} onSettings={() => setSettingsOpen(true)} agentReady={status ? status.agentReady : true} agent={status?.agent ?? 'claude'} />
       )}
       {settingsOpen && <Settings status={status} onClose={() => setSettingsOpen(false)} onSaved={loadStatus} />}
     </>

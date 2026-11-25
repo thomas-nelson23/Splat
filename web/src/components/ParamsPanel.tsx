@@ -65,7 +65,7 @@ export function ParamsPanel({ projectId, refreshKey, onOverrides }: Props) {
   if (!params.length)
     return (
       <div className="panel-pad muted">
-        No customizer parameters found in the main file. Ask Claude to "make the key dimensions parameters" and they'll show up here as sliders.
+        No customizer parameters found in the main file. Ask in the chat to "make the key dimensions parameters" and they'll show up here as sliders.
       </div>
     );
 

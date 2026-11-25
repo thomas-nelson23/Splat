@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { api } from '../api';
+import { HexMark, Wordmark } from './Glyphs';
 
 export function Login({ onDone }: { onDone: () => void }) {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState<string | null>(null);
   return (
-    <div className="login">
+    <div className="login hex">
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -17,8 +18,8 @@ export function Login({ onDone }: { onDone: () => void }) {
           }
         }}
       >
-        <img src="/icon.svg" alt="" width={64} height={64} />
-        <h2>Splat</h2>
+        <HexMark />
+        <Wordmark />
         <input type="password" autoFocus placeholder="Password" value={pw} onChange={(e) => setPw(e.target.value)} />
         {err && <div className="chat-error">{err}</div>}
         <button className="primary">Log in</button>

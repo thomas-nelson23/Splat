@@ -46,7 +46,7 @@ export function HistoryPanel({ projectId, refreshKey, viewing, onView }: Props) 
   return (
     <div className="history">
       <div className="params-actions">
-        <span className="muted">Every Claude turn, edit and import is saved as a version.</span>
+        <span className="muted">Every chat turn, edit and import is saved as a version.</span>
         <span className="spacer" />
         <button className="ghost small" onClick={saveVersion}>Save version</button>
       </div>

@@ -52,7 +52,11 @@ export interface ChatMessage {
   costUsd?: number;
   durationMs?: number;
   commit?: string | null;
+  agent?: AgentKind;
 }
+
+export type AgentKind = 'claude' | 'hermes';
+export const agentName = (a?: AgentKind) => (a === 'hermes' ? 'Hermes' : 'Claude');
 
 export type ParamValue = number | boolean | string | number[];
 export interface ScadParam {
@@ -94,6 +98,8 @@ export interface Status {
   version: string;
   openscad: { bin: string; version: string; manifold: boolean; formats: string[]; xvfb: boolean };
   claude: 'api-key' | 'oauth-token' | 'none';
+  agent: AgentKind;
+  agentReady: boolean;
   dataDir: string;
   exportFormats: ExportFormat[];
   importExtensions: string[];
@@ -106,6 +112,11 @@ export interface PublicSettings {
   anthropicApiKey: string;
   claudeOAuthToken: string;
   auth: { mode: 'api-key' | 'oauth-token' | 'none'; source: string };
+  agent: AgentKind;
+  hermesUrl: string;
+  hermesUrlSource: 'settings' | 'env' | 'none';
+  hermesApiKey: string;
+  hermesModel: string;
 }
 
 export class ApiError extends Error {

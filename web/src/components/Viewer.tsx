@@ -22,7 +22,8 @@ interface Props {
   onLoaded?: () => void;
 }
 
-const MODEL_COLOR = 0xf0a040;
+// Steeze: the field is bg (#021d2e); the part is a pale ice so cyan stays the signal colour.
+const MODEL_COLOR = 0xb9d6dc;
 
 export const Viewer = forwardRef<ViewerHandle, Props>(function Viewer({ url, kind, version, fitKey, onLoaded }, ref) {
   const host = useRef<HTMLDivElement>(null);
@@ -53,7 +54,7 @@ export const Viewer = forwardRef<ViewerHandle, Props>(function Viewer({ url, kin
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.localClippingEnabled = true;
-    renderer.setClearColor(0x1b1e24);
+    renderer.setClearColor(0x021d2e);
     el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -75,14 +76,15 @@ export const Viewer = forwardRef<ViewerHandle, Props>(function Viewer({ url, kin
     scene.add(camera);
 
     const grid = new THREE.Group();
-    const minor = new THREE.GridHelper(500, 100, 0x2c313a, 0x2c313a);
+    const minor = new THREE.GridHelper(500, 100, 0x0c2a3b, 0x0c2a3b);
     minor.rotation.x = Math.PI / 2;
-    const major = new THREE.GridHelper(500, 10, 0x3d4450, 0x3d4450);
+    const major = new THREE.GridHelper(500, 10, 0x1c4255, 0x1c4255);
     major.rotation.x = Math.PI / 2;
     major.position.z = 0.01;
     grid.add(minor, major);
     const axes = new THREE.AxesHelper(20);
     (axes.material as THREE.LineBasicMaterial).depthTest = false;
+    axes.setColors(new THREE.Color(0xff2a4f), new THREE.Color(0x00e5ff), new THREE.Color(0xff2bd6));
     axes.renderOrder = 2;
     grid.add(axes);
     scene.add(grid);
@@ -99,7 +101,7 @@ export const Viewer = forwardRef<ViewerHandle, Props>(function Viewer({ url, kin
       polygonOffsetFactor: 1,
       polygonOffsetUnits: 1,
     });
-    const edgesMat = new THREE.LineBasicMaterial({ color: 0x3a2a10, transparent: true, opacity: 0.55, clippingPlanes: [clip] });
+    const edgesMat = new THREE.LineBasicMaterial({ color: 0x01070b, transparent: true, opacity: 0.6, clippingPlanes: [clip] });
     const model = new THREE.Group();
     scene.add(model);
 
@@ -261,17 +263,17 @@ export const Viewer = forwardRef<ViewerHandle, Props>(function Viewer({ url, kin
     <div className="viewer">
       <div ref={host} className="viewer-canvas" />
       <div className="viewer-tools">
-        <button onClick={() => frameBox(views.iso[0])} title="Fit model">Fit</button>
+        <button className="small" onClick={() => frameBox(views.iso[0])} title="Fit model">Fit</button>
         {(['iso', 'top', 'front', 'right'] as ViewName[]).map((v) => (
-          <button key={v} onClick={() => frameBox(views[v][0], views[v][1])}>
+          <button key={v} className="small" onClick={() => frameBox(views[v][0], views[v][1])}>
             {v[0].toUpperCase() + v.slice(1)}
           </button>
         ))}
         <span className="sep" />
-        <button className={edges ? 'on' : ''} onClick={() => setEdges(!edges)} title="Show edges">Edges</button>
-        <button className={wire ? 'on' : ''} onClick={() => setWire(!wire)} title="Wireframe">Wire</button>
-        <button className={showGrid ? 'on' : ''} onClick={() => setShowGrid(!showGrid)} title="Build plate grid (10 mm squares)">Grid</button>
-        <button className={section ? 'on' : ''} onClick={() => setSection(!section)} title="Cut the model horizontally to see inside">Section</button>
+        <button className={`small ${edges ? 'on' : ''}`} onClick={() => setEdges(!edges)} title="Show edges">Edges</button>
+        <button className={`small ${wire ? 'on' : ''}`} onClick={() => setWire(!wire)} title="Wireframe">Wire</button>
+        <button className={`small ${showGrid ? 'on' : ''}`} onClick={() => setShowGrid(!showGrid)} title="Build plate grid (10 mm squares)">Grid</button>
+        <button className={`small ${section ? 'on' : ''}`} onClick={() => setSection(!section)} title="Cut the model horizontally to see inside">Section</button>
         {section && (
           <input
             type="range"
