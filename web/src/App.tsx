@@ -13,7 +13,8 @@ function parseHash() {
 export function App() {
   const [auth, setAuth] = useState<'checking' | 'login' | 'ok'>('checking');
   const [projectId, setProjectId] = useState<string | null>(parseHash());
-  const [firstMessage, setFirstMessage] = useState<string | undefined>();
+  // The prompt typed on the home page, sent once as the first message of the brand-new project it created.
+  const [firstMessage, setFirstMessage] = useState<{ projectId: string; text: string } | undefined>();
   const [status, setStatus] = useState<Status | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -46,7 +47,7 @@ export function App() {
   if (auth === 'login') return <Login onDone={() => setAuth('ok')} />;
 
   const open = (id: string, first?: string) => {
-    setFirstMessage(first);
+    setFirstMessage(first ? { projectId: id, text: first } : undefined);
     location.hash = `#/p/${id}`;
   };
 
@@ -57,7 +58,8 @@ export function App() {
           key={projectId}
           projectId={projectId}
           status={status}
-          firstMessage={firstMessage}
+          firstMessage={firstMessage?.projectId === projectId ? firstMessage.text : undefined}
+          onFirstMessageSent={() => setFirstMessage(undefined)}
           onBack={() => {
             setFirstMessage(undefined);
             location.hash = '#/';

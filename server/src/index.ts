@@ -13,7 +13,7 @@ import * as git from './git.js';
 import { preview, dropPreview } from './preview.js';
 import { capabilities, parseParams, render, stlStats, type ParamOverrides } from './openscad.js';
 import { EXPORT_FORMATS, exportProject, importFile, IMPORT_EXTS } from './convert.js';
-import { chat, testAgent } from './claude.js';
+import { chat, dropChat, testAgent } from './claude.js';
 import { publicSettings, updateSettings, claudeAuth, agentKind, agentReady } from './settings.js';
 import { subscribe, send, broadcast } from './hub.js';
 import { authEnabled, checkPassword, clearSession, isAuthed, makeToken, parseCookies, readToken, requireAuth, setSession } from './auth.js';
@@ -145,7 +145,7 @@ app.delete(
   '/api/projects/:id',
   h(async (req) => {
     const id = pid(req);
-    chat(id).stop();
+    dropChat(id);
     dropPreview(id);
     await projects.deleteProject(id);
     return { ok: true };

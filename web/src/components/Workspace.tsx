@@ -17,11 +17,12 @@ interface Props {
   projectId: string;
   status: Status | null;
   firstMessage?: string;
+  onFirstMessageSent?: () => void;
   onBack: () => void;
   onSettings: () => void;
 }
 
-export function Workspace({ projectId, status, firstMessage, onBack, onSettings }: Props) {
+export function Workspace({ projectId, status, firstMessage, onFirstMessageSent, onBack, onSettings }: Props) {
   const [meta, setMeta] = useState<ProjectMeta | null>(null);
   const [pv, setPv] = useState<PreviewState>({ status: 'idle', version: 0 });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -104,6 +105,7 @@ export function Workspace({ projectId, status, firstMessage, onBack, onSettings 
   useEffect(() => {
     if (!firstMessage || sentFirst.current) return;
     sentFirst.current = true;
+    onFirstMessageSent?.();
     void api(`${P(projectId)}/chat`, { json: { text: firstMessage, images: [] } }).catch(() => setDraft(firstMessage));
   }, [firstMessage, projectId]);
 

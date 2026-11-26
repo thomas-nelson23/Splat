@@ -457,6 +457,12 @@ export function chat(projectId: string) {
   return s;
 }
 
+/** Forget a project's chat (on delete), so a new project that gets the same id starts with an empty conversation. */
+export function dropChat(projectId: string) {
+  sessions.get(projectId)?.stop();
+  sessions.delete(projectId);
+}
+
 /** Test whichever agent is selected (or the one asked for). */
 export function testAgent(which?: 'claude' | 'hermes') {
   return (which ?? agentKind()) === 'hermes' ? testHermes() : testClaude();

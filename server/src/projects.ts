@@ -105,10 +105,20 @@ export async function listProjects(): Promise<(ProjectMeta & { thumbnail: boolea
   return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+/** Ids of deleted projects (kept in .trash as `<id>-<timestamp>`), so a new project never takes over an old one's id. */
+function trashedIds() {
+  try {
+    return new Set(fss.readdirSync(path.join(PROJECTS_DIR, '.trash')).map((n) => n.replace(/-\d+$/, '')));
+  } catch {
+    return new Set<string>();
+  }
+}
+
 function uniqueId(name: string) {
   const base = slugify(name);
+  const trashed = trashedIds();
   let id = base;
-  while (fss.existsSync(path.join(PROJECTS_DIR, id))) id = `${base}-${crypto.randomBytes(2).toString('hex')}`;
+  while (fss.existsSync(path.join(PROJECTS_DIR, id)) || trashed.has(id)) id = `${base}-${crypto.randomBytes(2).toString('hex')}`;
   return id;
 }
 
